@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Secure Chat App</title>
+    <script src="https://cdn.socket.io/4.3.2/socket.io.min.js"></script>
+</head>
+<body>
+    <header>
+        <h1>Welcome, {{ username }}</h1>
+        <form action="/logout" method="GET" style="display: inline;">
+            <button type="submit">Logout</button>
+        </form>
+    </header>
+
+    <!-- Online Users -->
+    <section>
+        <h3>Online Users</h3>
+        <ul id="online-users" aria-label="Online Users List"></ul>
+    </section>
+
+    <!-- Public Chat -->
+    <section>
+        <h3>Public Chat</h3>
+        <ul id="messages" aria-label="Public Messages List"></ul>
+        <p id="typing-indicator" style="display: none; font-style: italic; color: gray;"></p>
+
+
+        <form id="chat-form" action="javascript:void(0);">
+            <input type="text" id="msg" placeholder="Type a message..." aria-label="Public Message Input" autocomplete="off" required />
+            <button type="submit">Send</button>
+        </form>
+
+        <h4>Send a File (Public)</h4>
+        <form id="file-upload-form" enctype="multipart/form-data" onsubmit="return false;">
+            <input type="file" id="file-input" aria-label="Public File Upload" />
+            <button type="button" id="send-file">Send File</button>
+        </form>
+    </section>
+
+    <!-- Private Chat -->
+    <section>
+        <h3>Send Private Message</h3>
+        <div id="private-message">
+            <label for="recipient">Recipient:</label>
+            <input type="text" id="recipient" placeholder="Enter username" aria-label="Private Message Recipient" required />
+
+            <label for="private-message-input">Message:</label>
+            <textarea id="private-message-input" placeholder="Type your private message" aria-label="Private Message Input" required></textarea>
+
+            <button type="button" id="send-private-message">Send Private Message</button>
+        </div>
+
+        <h4>Send a File (Private)</h4>
+        <form id="private-file-upload-form" enctype="multipart/form-data" onsubmit="return false;">
+            <input type="file" id="private-file-input" aria-label="Private File Upload" />
+            <button type="button" id="send-private-file">Send Private File</button>
+        </form>
+    </section>
+
+    <!-- JS Initialization -->
+    <script>
+        const username = "{{ username }}"; // Pass username to JS
+    </script>
+    <script src="{{ url_for('static', filename='chat.js') }}"></script>
+</body>
+</html>
