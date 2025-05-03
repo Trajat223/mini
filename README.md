@@ -32,16 +32,18 @@ Supports user registration, login, chat rooms, and file sharing.
 ## Database Setup
 
 1. Create the `instance` folder:
-    ```bash
+    
     mkdir instance
-    ```
+    
 2. Set up the virtual environment:
+
    python -m venv venv
    source venv/bin/activate # Linux/macOS
    venv\Scripts\activate # Windows
    pip install -r requirements.txt
 
 3. Initialize the database:
+
     mkdir instance
     sqlite3 instance/chat.db < schema.sql
     
