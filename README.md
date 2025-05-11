@@ -59,3 +59,4 @@ Supports user registration, login, chat rooms, and file sharing.
 - The `.gitignore` excludes unnecessary files like `chat.db` and `venv/`.
 
 # miniproject
+# miniproject
