@@ -1,68 +1,98 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Secure Chat App</title>
-    <script src="https://cdn.socket.io/4.3.2/socket.io.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureChatApp</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/js/all.min.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js" integrity="sha384-8tTwO4A15fK+Sk0QvTCYERhvxDCecVR9dcGzQWs47IhP8OcLylRmkVyGpJ3saxlD" crossorigin="anonymous"></script>
 </head>
-<body>
-    <header>
-        <h1>Welcome, {{ username }}</h1>
-        <form action="/logout" method="GET" style="display: inline;">
-            <button type="submit">Logout</button>
-        </form>
-    </header>
+<body data-user-id="{{ current_user.id }}">
+    <div class="container">
+        <div class="chat-container">
+            <div class="chat-header">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h2>SecureChat</h2>
+                    <div>
+                        <span>Welcome, {{ current_user.username }}</span>
+                        <a href="{{ url_for('logout') }}" style="color: white; margin-left: 15px;">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </a>
+                    </div>
+                </div>
+                <div style="font-size: 12px; color: rgba(255,255,255,0.7);">
+                    <i class="fas fa-shield-alt"></i> Face verification enabled
+                </div>
+            </div>
 
-    <!-- Online Users -->
-    <section>
-        <h3>Online Users</h3>
-        <ul id="online-users" aria-label="Online Users List"></ul>
-    </section>
+            <div class="chat-messages" id="messageContainer">
+                {% for message in messages %}
+                    <div class="message {% if message.sender_id == current_user.id %}sent{% else %}received{% endif %}" data-message-id="{{ message.id }}">
+                        <div class="message-user">
+                            {% if message.sender_id == current_user.id %}
+                                You → {{ message.recipient.username }}
+                            {% else %}
+                                {{ message.sender.username }} → You
+                            {% endif %}
+                        </div>
 
-    <!-- Public Chat -->
-    <section>
-        <h3>Public Chat</h3>
-        <ul id="messages" aria-label="Public Messages List"></ul>
-        <p id="typing-indicator" style="display: none; font-style: italic; color: gray;"></p>
+                        {% if message.is_face_locked %}
+                            <div class="locked-message">🔒 Face-locked message</div>
+                        {% else %}
+                            {% if message.content %}
+                                <div>{{ message.content }}</div>
+                            {% endif %}
+                        {% endif %}
 
+                        {% if message.file_path %}
+                            {% set filename = message.file_path.split('/')[-1] %}
+                            <div>
+                                📎 <a href="{{ url_for('uploaded_file', filename=filename) }}" target="_blank">{{ filename }}</a>
+                            </div>
+                        {% endif %}
+                        <div class="message-time">
+                            {{ message.timestamp.strftime('%H:%M') }}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
 
-        <form id="chat-form" action="javascript:void(0);">
-            <input type="text" id="msg" placeholder="Type a message..." aria-label="Public Message Input" autocomplete="off" required />
-            <button type="submit">Send</button>
-        </form>
+            <!-- Messaging form -->
+            <form class="message-form" id="messageForm" method="POST" action="{{ url_for('send_message') }}" enctype="multipart/form-data">
+                {{ form.hidden_tag() }}
 
-        <h4>Send a File (Public)</h4>
-        <form id="file-upload-form" enctype="multipart/form-data" onsubmit="return false;">
-            <input type="file" id="file-input" aria-label="Public File Upload" />
-            <button type="button" id="send-file">Send File</button>
-        </form>
-    </section>
+                <select name="recipient_id" required class="message-select">
+                    <option value="" disabled {% if not recipient_id %}selected{% endif %}>Select recipient</option>
+                    {% for user in users %}
+                        {% if user.id != current_user.id %}
+                            <option value="{{ user.id }}" {% if user.id == recipient_id %}selected{% endif %}>
+                                {{ user.username }}
+                            </option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
 
-    <!-- Private Chat -->
-    <section>
-        <h3>Send Private Message</h3>
-        <div id="private-message">
-            <label for="recipient">Recipient:</label>
-            <input type="text" id="recipient" placeholder="Enter username" aria-label="Private Message Recipient" required />
+                <input type="text" class="message-input" name="message" placeholder="Type a message..." autocomplete="off">
+                <input type="file" name="file" class="message-file">
 
-            <label for="private-message-input">Message:</label>
-            <textarea id="private-message-input" placeholder="Type your private message" aria-label="Private Message Input" required></textarea>
+                <label style="font-size: 12px; margin-left: 10px;">
+                    <input type="checkbox" name="face_locked" id="faceLockedCheckbox"> Face-lock
+                </label>
 
-            <button type="button" id="send-private-message">Send Private Message</button>
+                <button type="submit" class="send-button">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </form>
         </div>
+    </div>
 
-        <h4>Send a File (Private)</h4>
-        <form id="private-file-upload-form" enctype="multipart/form-data" onsubmit="return false;">
-            <input type="file" id="private-file-input" aria-label="Private File Upload" />
-            <button type="button" id="send-private-file">Send Private File</button>
-        </form>
-    </section>
-
-    <!-- JS Initialization -->
     <script>
-        const username = "{{ username }}"; // Pass username to JS
+        const container = document.getElementById("messageContainer");
+        container.scrollTop = container.scrollHeight;
     </script>
+
     <script src="{{ url_for('static', filename='chat.js') }}"></script>
 </body>
 </html>

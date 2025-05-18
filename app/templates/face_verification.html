@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Verification - SecureChatApp</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    <!-- Face-API.js library -->
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+
+    <style>
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .video-container {
+            position: relative;
+            width: 100%;
+            max-width: 640px;
+            margin: 0 auto;
+        }
+        
+        #faceVideo, #faceCanvas {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            max-width: 640px;
+            height: auto;
+        }
+        
+        #faceCanvas {
+            z-index: 10;
+        }
+        
+        #faceVideo {
+            z-index: 5;
+            background-color: #000;
+        }
+        
+        .controls {
+            margin-top: 480px;
+            padding: 20px;
+        }
+        
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+        }
+        
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        .success {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        
+        .warning {
+            color: #ff9800;
+            font-weight: bold;
+        }
+        
+        .error {
+            color: #f44336;
+            font-weight: bold;
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Face Verification</h1>
+        
+        <div id="loginForm">
+            <p>Welcome back, <strong>{{ username }}</strong>!</p>
+            <p>Please verify your identity with face recognition.</p>
+            <button id="unlockBtn">Start Face Verification</button>
+            <p><a href="{{ url_for('login') }}">Back to Login</a></p>
+        </div>
+        
+        <div id="faceUnlockContainer" style="display: none;">
+            <div class="video-container">
+                <video id="faceVideo" width="640" height="480" autoplay muted></video>
+                <canvas id="faceCanvas" width="640" height="480"></canvas>
+            </div>
+            
+            <div class="controls">
+                <p id="faceStatus" class="warning">Initializing face detection...</p>
+                <button id="captureBtn" disabled>Verify Face</button>
+                <p><a href="{{ url_for('login') }}">Cancel</a></p>
+            </div>
+        </div>
+        
+        <!-- Hidden input for username -->
+        <input type="hidden" id="username" value="{{ username }}">
+    </div>
+    
+    <script src="{{ url_for('static', filename='face_auth.js') }}"></script>
+</body>
+</html>

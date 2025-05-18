@@ -1,27 +1,54 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Login</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - SecureChatApp</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
-    <h2>Login</h2>
-    <form method="POST">
-        <label>Username:</label>
-        <input type="text" name="username" required><br><br>
-        <label>Password:</label>
-        <input type="password" name="password" required><br><br>
-        <button type="submit">Login</button>
-    </form>
-    <p>No account? <a href="/register">Register here</a></p>
-    <!-- Display Flash Messages -->
-    {% with messages = get_flashed_messages() %}
-        {% if messages %}
-            <ul>
-                {% for msg in messages %}
-                    <li>{{ msg }}</li>
-                {% endfor %}
-            </ul>
-        {% endif %}
-    {% endwith %}
+    <div class="container auth-container">
+        <h1>Login to SecureChat</h1>
+        
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for message in messages %}
+                        <p>{{ message }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+        
+        <form action="{{ url_for('login') }}" method="post">
+            {{ form.hidden_tag() }}
+            
+            <div class="form-group">
+                <label for="username">Username</label>
+                {{ form.username(class="form-control", id="username") }}
+                {% if form.username.errors %}
+                    <div class="form-errors">
+                        {{ form.username.errors[0] }}
+                    </div>
+                {% endif %}
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password</label>
+                {{ form.password(class="form-control", id="password") }}
+                {% if form.password.errors %}
+                    <div class="form-errors">
+                        {{ form.password.errors[0] }}
+                    </div>
+                {% endif %}
+            </div>
+            
+            <div class="form-group">
+                <button type="submit">Login</button>
+            </div>
+            
+            <p class="auth-toggle">Don't have an account? <a href="{{ url_for('register') }}">Register</a></p>
+        </form>
+    </div>
 </body>
 </html>

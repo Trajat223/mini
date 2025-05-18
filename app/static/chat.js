@@ -1,232 +1,232 @@
-const socket = io({ query: { username: username } }); // Assume username is defined globally
+document.addEventListener('DOMContentLoaded', function () {
+    const messageContainer = document.getElementById('messageContainer');
+    const messageForm = document.querySelector('.message-form');
+    const messageInput = document.querySelector('.message-input');
+    const recipientInput = document.querySelector('.message-select');
+    const faceLockedCheckbox = document.querySelector('#faceLockedCheckbox');
+    const fileInput = document.querySelector('.message-file');
+    const currentUserId = document.body.dataset.userId;
 
-// Generate a unique message ID
-function generateMessageId() {
-    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-}
-
-// ========== TYPING INDICATOR ========== 
-let typing = false;
-let typingTimeout;
-const messageInput = document.getElementById("msg");
-const typingIndicator = document.getElementById("typing-indicator");
-
-messageInput.addEventListener("input", () => {
-    const message = messageInput.value.trim();
-
-    if (message !== "") {
-        if (!typing) {
-            socket.emit("typing", { sender: username });
-            typing = true;
-        }
-
-        clearTimeout(typingTimeout);
-        typingTimeout = setTimeout(() => {
-            socket.emit("stop_typing", { sender: username });
-            typing = false;
-        }, 1000); // stop typing after 1s of inactivity
-    } else {
-        if (typing) {
-            socket.emit("stop_typing", { sender: username });
-            typing = false;
-        }
-        clearTimeout(typingTimeout);
+    if (messageContainer) {
+        messageContainer.scrollTop = messageContainer.scrollHeight;
     }
-});
 
-// Show/hide "typing" indicator only when someone else is typing
-socket.on("typing", ({ sender }) => {
-    if (sender !== username) {
-        typingIndicator.innerText = `${sender} is typing...`;
-        typingIndicator.style.display = "block";
-    }
-});
-
-socket.on("stop_typing", ({ sender }) => {
-    if (sender !== username) {
-        typingIndicator.style.display = "none";
-    }
-});
-
-
-
-
-
-// ========== READ RECEIPTS ========== 
-document.getElementById("messages").addEventListener("click", (event) => {
-    if (event.target.tagName === "LI" && event.target.dataset.messageId) {
-        socket.emit("message_read", {
-            message_id: event.target.dataset.messageId,
-            sender: username,
-            reader: username
-        });
-    }
-});
-
-// ========== PUBLIC MESSAGE ========== 
-document.getElementById("chat-form").addEventListener("submit", (event) => {
-    event.preventDefault();
-    const message = messageInput.value.trim();
-    if (message && message.length <= 1000) { // Limit message length to 1000 characters
-        const messageId = generateMessageId();
-        const timestamp = new Date().toISOString();
-        socket.emit("send_message", {
-            sender: username,
-            message,
-            timestamp,
-            message_id: messageId,
-        });
-        messageInput.value = ""; // Clear input after sending
-    } else {
-        alert("Message is too long or empty.");
-    }
-});
-
-socket.on("receive_message", (data) => {
-    const { sender, message, timestamp, message_id } = data;
-    const messages = document.getElementById("messages");
-    const li = document.createElement("li");
-    li.textContent = `[${timestamp}] ${sender}: ${message}`;
-    li.dataset.messageId = message_id;
-    messages.appendChild(li);
-});
-
-// ========== PRIVATE MESSAGE ========== 
-document.getElementById("send-private-message").addEventListener("click", () => {
-    const recipient = document.getElementById("recipient").value.trim();
-    const message = document.getElementById("private-message-input").value.trim();
-    if (recipient && message && message.length <= 1000) { // Limit private message length
-        const messageId = generateMessageId();
-        const timestamp = new Date().toISOString();
-        socket.emit("private_message", {
-            sender: username,
-            recipient,
-            message,
-            timestamp,
-            message_id: messageId,
-        });
-
-        const li = document.createElement("li");
-        li.textContent = `[PRIVATE] [To ${recipient}] ${message}`;
-        li.style.color = "green";
-        li.dataset.messageId = messageId;
-        document.getElementById("messages").appendChild(li);
-
-        document.getElementById("recipient").value = "";
-        document.getElementById("private-message-input").value = "";
-    } else {
-        alert("Please provide a recipient and a valid message.");
-    }
-});
-
-socket.on("private_message", (data) => {
-    const { sender, message, timestamp, message_id } = data;
-    const li = document.createElement("li");
-    li.textContent = `[PRIVATE] [${timestamp}] ${sender}: ${message}`;
-    li.style.color = "blue";
-    li.dataset.messageId = message_id;
-    document.getElementById("messages").appendChild(li);
-});
-
-// ========== PUBLIC FILE UPLOAD ========== 
-document.getElementById("send-file").addEventListener("click", async () => {
-    const file = document.getElementById("file-input").files[0];
-    if (!file) return alert("Please select a file.");
-    if (file.size > 5 * 1024 * 1024) return alert("File exceeds 5MB.");
-
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("sender", username);
-
+    let socket;
     try {
-        const response = await fetch("/upload_public", { method: "POST", body: formData });
-        const result = await response.json();
-        if (response.ok) {
-            alert(`File uploaded: ${result.fileName}`);
-        } else {
-            alert("Failed to upload file.");
-        }
-    } catch (err) {
-        console.error("Upload error:", err);
-        alert("An error occurred during file upload.");
+        socket = io();
+        socket.emit('join_room', currentUserId);
+
+        socket.on('new_message', function (message) {
+            addMessageToUI(message);
+        });
+
+        socket.on('connect_error', function (error) {
+            console.error('Socket connection error:', error);
+            console.log('Falling back to HTTP polling');
+        });
+    } catch (e) {
+        console.error('Socket.IO not available:', e);
     }
-});
 
-socket.on("receive_file", (data) => {
-    const { sender, fileName, fileUrl } = data;
-    const li = document.createElement("li");
-    li.innerHTML = `[FILE] [${sender}] <a href="${fileUrl}" download="${fileName}">${fileName}</a>`;
-    document.getElementById("messages").appendChild(li);
-});
+    if (messageForm) {
+        messageForm.addEventListener('submit', function (e) {
+            e.preventDefault();
 
-// ========== PRIVATE FILE UPLOAD ========== 
-document.getElementById("send-private-file").addEventListener("click", async () => {
-    const recipient = document.getElementById("recipient").value.trim();
-    const file = document.getElementById("private-file-input").files[0];
-    if (!file || !recipient) return alert("Select a file and specify recipient.");
-    if (file.size > 5 * 1024 * 1024) return alert("File exceeds 5MB.");
+            const content = messageInput.value.trim();
+            const recipientId = recipientInput ? recipientInput.value : null;
+            const isFaceLocked = faceLockedCheckbox?.checked || false;
+            const file = fileInput?.files[0];
 
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("sender", username);
-    formData.append("recipient", recipient);
+            if (!content && !file) return;
+            if (!recipientId) return;
 
-    try {
-        const response = await fetch("/upload_private", { method: "POST", body: formData });
-        const result = await response.json();
-        if (response.ok) {
-            const li = document.createElement("li");
-            li.innerHTML = `[FILE] [To ${recipient}] <a href="${result.fileUrl}" download="${result.fileName}">${result.fileName}</a>`;
-            li.style.color = "green";
-            document.getElementById("messages").appendChild(li);
-        } else {
-            alert("Failed to upload private file.");
-        }
-    } catch (err) {
-        console.error("Upload error:", err);
-        alert("Error uploading private file.");
+            const now = new Date();
+            const time = now.toTimeString().slice(0, 5);
+            const tempId = 'temp-' + Date.now();
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message sent';
+            messageDiv.dataset.messageId = tempId;
+
+            const contentHtml = isFaceLocked
+                ? `<span class="locked-message">🔒 Face-locked message</span>`
+                : content;
+
+            messageDiv.innerHTML = `
+                <div class="message-user">You</div>
+                ${contentHtml}
+                ${file ? `<div>📎 ${file.name}</div>` : ''}
+                <div class="message-time">${time}</div>
+            `;
+
+            messageContainer.appendChild(messageDiv);
+            messageContainer.scrollTop = messageContainer.scrollHeight;
+
+            if (socket && socket.connected && !file) {
+                socket.emit('send_message', {
+                    content: content,
+                    recipient_id: recipientId,
+                    is_face_locked: isFaceLocked
+                });
+            } else {
+                const formData = new FormData();
+                formData.append('content', content);
+                formData.append('recipient_id', recipientId);
+                formData.append('is_face_locked', isFaceLocked);
+                if (file) formData.append('file', file);
+
+                fetch('/send_message', {
+                    method: 'POST',
+                    body: formData
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            fetchMessages(recipientId);
+                        } else {
+                            console.error('Failed to send message:', data.message);
+                            alert('Failed to send message.');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error sending message:', error);
+                        alert('Message could not be sent.');
+                    });
+            }
+
+            messageInput.value = '';
+            if (faceLockedCheckbox) faceLockedCheckbox.checked = false;
+            if (fileInput) fileInput.value = '';
+        });
     }
-});
 
-socket.on("private_file", (data) => {
-    const { sender, fileName, fileUrl } = data;
-    const li = document.createElement("li");
-    li.innerHTML = `[FILE] [PRIVATE] [${sender}] <a href="${fileUrl}" download="${fileName}">${fileName}</a>`;
-    li.style.color = "blue";
-    document.getElementById("messages").appendChild(li);
-});
+    function addMessageToUI(message) {
+        const existing = document.querySelector(`[data-message-id="${message.id}"]`);
+        if (existing) return;
 
-// ========== ONLINE USERS ========== 
-socket.on("user_list", (users) => {
-    const ul = document.getElementById("online-users");
-    ul.innerHTML = "";
-    users.forEach((user) => {
-        const li = document.createElement("li");
-        li.textContent = user;
-        ul.appendChild(li);
+        const timestamp = new Date(message.timestamp);
+        const time = timestamp.toTimeString().slice(0, 5);
+
+        const isLocked = message.is_face_locked;
+        const isCurrentUser = message.user_id == currentUserId;
+
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${isCurrentUser ? 'sent' : 'received'}`;
+        messageDiv.dataset.messageId = message.id;
+
+        let contentHtml = '';
+        if (isLocked) {
+            contentHtml = `<div class="locked-message" data-locked="true" data-message-id="${message.id}">
+                🔒 Face-locked message (click to unlock)
+            </div>`;
+        } else {
+            contentHtml = `<div>${message.content}</div>`;
+        }
+
+        const fileHtml = message.file_path
+            ? `<div>📎 <a href="/uploads/${message.file_path.split('/').pop()}" target="_blank">${message.file_path.split('/').pop()}</a></div>`
+            : '';
+
+        messageDiv.innerHTML = `
+            <div class="message-user">${isCurrentUser ? 'You' : message.author.username}</div>
+            ${contentHtml}
+            ${fileHtml}
+            <div class="message-time">${time}</div>
+        `;
+
+        messageContainer.appendChild(messageDiv);
+        messageContainer.scrollTop = messageContainer.scrollHeight;
+
+        // Remove temp message if matching
+        const tempMessages = document.querySelectorAll('[data-message-id^="temp-"]');
+        tempMessages.forEach(temp => {
+            if (
+                temp.textContent.includes(message.content) ||
+                (isLocked && temp.querySelector('.locked-message'))
+            ) {
+                temp.remove();
+            }
+        });
+
+        // Face unlock click handler
+        if (isLocked) {
+            const lockedDiv = messageDiv.querySelector('.locked-message');
+            lockedDiv.addEventListener('click', function () {
+                fetch('/face_verification_api')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.verified) {
+                            lockedDiv.outerHTML = `<div>${message.content}</div>`;
+                        } else {
+                            alert('Face verification failed. Cannot unlock message.');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Face verification error:', error);
+                        alert('Error during face verification.');
+                    });
+            });
+        }
+    }
+
+    function fetchMessages(recipientId) {
+        const url = recipientId ? `/get_messages?recipient_id=${recipientId}` : '/get_messages';
+
+        fetch(url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.messages) updateMessages(data.messages);
+            })
+            .catch(error => console.error('Error fetching messages:', error));
+    }
+
+    function updateMessages(messages) {
+        const displayed = new Set();
+        document.querySelectorAll('[data-message-id]').forEach(el => {
+            const id = el.dataset.messageId;
+            if (!id.startsWith('temp-')) displayed.add(id);
+        });
+
+        messages.forEach(message => {
+            if (!displayed.has(message.id.toString())) {
+                addMessageToUI(message);
+            }
+        });
+    }
+
+    const recipientId = recipientInput ? recipientInput.value : null;
+    if (recipientId) fetchMessages(recipientId);
+
+    // Inactivity lock
+    let inactivityTimeout;
+    const inactivityLimit = 5 * 60 * 1000;
+
+    function resetInactivityTimer() {
+        clearTimeout(inactivityTimeout);
+        inactivityTimeout = setTimeout(() => {
+            window.location.href = '/face_verification';
+        }, inactivityLimit);
+    }
+
+    document.addEventListener('mousemove', resetInactivityTimer);
+    document.addEventListener('keypress', resetInactivityTimer);
+    document.addEventListener('click', resetInactivityTimer);
+    resetInactivityTimer();
+
+    const pollingInterval = setInterval(() => {
+        if (!socket || !socket.connected) {
+            fetchMessages(recipientInput ? recipientInput.value : null);
+        }
+    }, 5000);
+
+    window.addEventListener('beforeunload', () => {
+        clearInterval(pollingInterval);
+        if (socket) socket.disconnect();
     });
-});
-
-// ========== TYPING INDICATOR ========== 
-socket.on("typing", (data) => {
-    document.getElementById("typing-indicator").textContent = `${data.sender} is typing...`;
-});
-
-socket.on("stop_typing", () => {
-    document.getElementById("typing-indicator").textContent = "";
-});
-
-// ========== MESSAGE READ ACK ========== 
-socket.on("message_read_ack", (data) => {
-    const { message_id, reader } = data;
-    const messageElement = document.querySelector(`[data-message-id="${message_id}"]`);
-    if (messageElement) {
-        messageElement.style.fontStyle = "italic";
-        messageElement.title = `Read by ${reader}`;
-    }
-});
-
-// ========== ERROR HANDLER ========== 
-socket.on("error", (data) => {
-    alert(data.message || "An error occurred.");
 });
