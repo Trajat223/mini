@@ -184,6 +184,7 @@ def get_messages():
         'content': m.content,
         'timestamp': m.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
         'is_face_locked': m.is_face_locked,
+        'is_encrypted': True,  # Assume all messages are encrypted
         'author': {
             'id': m.sender_id,
             'username': User.query.get(m.sender_id).username
@@ -196,6 +197,7 @@ def send_message():
     content = request.form.get('content')
     recipient_id = request.form.get('recipient_id', type=int)
     is_face_locked = request.form.get('is_face_locked', 'false') == 'true'
+    is_encrypted = request.form.get('is_encrypted', 'false') == 'true'
 
     if not content or not recipient_id:
         return jsonify({'success': False, 'message': 'Missing content or recipient'}), 400
@@ -221,6 +223,7 @@ def send_message():
         'content': message.content,
         'timestamp': message.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
         'is_face_locked': message.is_face_locked,
+        'is_encrypted': is_encrypted,
         'author': {
             'id': current_user.id,
             'username': current_user.username
@@ -266,6 +269,7 @@ def handle_send_message(data):
     content = data.get('content')
     recipient_id = data.get('recipient_id')
     is_face_locked = data.get('is_face_locked', False)
+    is_encrypted = data.get('is_encrypted', False)
 
     if not content or not recipient_id:
         return {'success': False, 'message': 'Missing content or recipient'}
@@ -291,6 +295,7 @@ def handle_send_message(data):
         'content': message.content,
         'timestamp': message.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
         'is_face_locked': is_face_locked,
+        'is_encrypted': is_encrypted,
         'author': {
             'id': current_user.id,
             'username': current_user.username

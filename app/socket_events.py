@@ -28,8 +28,9 @@ def handle_send_message(data):
     recipient_id = data.get('recipient_id')
     content = data.get('content')
     is_face_locked = data.get('is_face_locked', False)
+    is_encrypted = data.get('is_encrypted', False)
 
-    print(f"[SocketIO] Message from {sender_id} to {recipient_id}: {content} (locked: {is_face_locked})")
+    print(f"[SocketIO] Message from {sender_id} to {recipient_id} (locked: {is_face_locked}, encrypted: {is_encrypted})")
 
     if sender_id and recipient_id and content:
         message = Message(
@@ -47,6 +48,7 @@ def handle_send_message(data):
             'recipient_id': recipient_id,
             'content': content,
             'is_face_locked': is_face_locked,
+            'is_encrypted': is_encrypted,
             'timestamp': message.timestamp.isoformat(),
             'author': {
                 'id': current_user.id,
@@ -81,6 +83,7 @@ def handle_get_messages(data):
             'content': msg.content,
             'file_path': msg.file_path,
             'is_face_locked': msg.is_face_locked,
+            'is_encrypted': True,  # Assume all messages are encrypted
             'timestamp': msg.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
             'author': {
                 'id': sender.id,

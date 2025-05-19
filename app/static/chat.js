@@ -62,17 +62,22 @@ document.addEventListener('DOMContentLoaded', function () {
             messageContainer.appendChild(messageDiv);
             messageContainer.scrollTop = messageContainer.scrollHeight;
 
+            // Encrypt the message content before sending
+            const encryptedContent = encryptMessage(content, recipientId);
+
             if (socket && socket.connected && !file) {
                 socket.emit('send_message', {
-                    content: content,
+                    content: encryptedContent,
                     recipient_id: recipientId,
-                    is_face_locked: isFaceLocked
+                    is_face_locked: isFaceLocked,
+                    is_encrypted: true
                 });
             } else {
                 const formData = new FormData();
-                formData.append('content', content);
+                formData.append('content', encryptedContent);
                 formData.append('recipient_id', recipientId);
                 formData.append('is_face_locked', isFaceLocked);
+                formData.append('is_encrypted', true);
                 if (file) formData.append('file', file);
 
                 fetch('/send_message', {
@@ -109,10 +114,23 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const isLocked = message.is_face_locked;
         const isCurrentUser = message.user_id == currentUserId;
+        const isEncrypted = message.is_encrypted;
+
+        // Decrypt the message content if it's encrypted
+        let messageContent = message.content;
+        if (isEncrypted && !isLocked) {
+            const senderId = isCurrentUser ? currentUserId : message.user_id;
+            messageContent = decryptMessage(messageContent, senderId);
+        }
 
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${isCurrentUser ? 'sent' : 'received'}`;
         messageDiv.dataset.messageId = message.id;
+
+        // Store the original encrypted content for face-locked messages
+        if (isLocked && isEncrypted) {
+            messageDiv.dataset.encryptedContent = message.content;
+        }
 
         let contentHtml = '';
         if (isLocked) {
@@ -120,7 +138,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 🔒 Face-locked message (click to unlock)
             </div>`;
         } else {
-            contentHtml = `<div>${message.content}</div>`;
+            contentHtml = `<div>${messageContent}</div>`;
         }
 
         const fileHtml = message.file_path
@@ -156,7 +174,14 @@ document.addEventListener('DOMContentLoaded', function () {
                     .then(response => response.json())
                     .then(data => {
                         if (data.verified) {
-                            lockedDiv.outerHTML = `<div>${message.content}</div>`;
+                            // Get the message content, decrypt if needed
+                            let content = message.content;
+                            if (message.is_encrypted || messageDiv.dataset.encryptedContent) {
+                                const encryptedContent = messageDiv.dataset.encryptedContent || message.content;
+                                const senderId = isCurrentUser ? currentUserId : message.user_id;
+                                content = decryptMessage(encryptedContent, senderId);
+                            }
+                            lockedDiv.outerHTML = `<div>${content}</div>`;
                         } else {
                             alert('Face verification failed. Cannot unlock message.');
                         }
