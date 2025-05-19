@@ -50,7 +50,6 @@ def handle_send_message(data):
             'content': content,
             'is_face_locked': is_face_locked,
             'is_encrypted': is_encrypted,
-            'is_encrypted': is_encrypted,
             'timestamp': message.timestamp.isoformat(),
             'author': {
                 'id': current_user.id,
