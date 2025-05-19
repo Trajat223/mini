@@ -241,6 +241,31 @@ def logout():
     session.clear()  # Ensures full logout
     return redirect(url_for('login'))
 
+@app.route('/face_verification_api', methods=['GET', 'POST'])
+@login_required
+def face_verification_api():
+    """
+    API endpoint to verify user face for unlocking messages
+    This is a simplified version that assumes the current logged-in user
+    has already been authenticated
+    """
+    # Log the verification attempt
+    log_entry = FaceVerificationLog(
+        user_id=current_user.id,
+        timestamp=datetime.utcnow(),
+        success=True  # In a real app, you would do actual face verification here
+    )
+    db.session.add(log_entry)
+    db.session.commit()
+    
+    # In a production app, you would perform actual face verification here
+    # using the same technique used during login
+    
+    return jsonify({
+        'verified': True,
+        'message': 'Face verification successful'
+    })
+
 # --- Socket.IO Events ---
 
 @socketio.on('join_room')

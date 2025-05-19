@@ -9,6 +9,63 @@
 const conversationKeys = {};
 
 /**
+ * Generates a deterministic encryption key for a conversation between two users
+ * Note: In a production system, you would use a proper key exchange protocol
+ */
+function getConversationKey(userId, otherUserId) {
+    const conversationId = [userId, otherUserId].sort().join('_');
+    
+    if (!conversationKeys[conversationId]) {
+        // In a real E2EE implementation, we would use a proper key exchange protocol
+        // This is a simplified version that derives a key from user IDs
+        // DO NOT USE THIS APPROACH IN PRODUCTION
+        const salt = "SecureChatApp_E2EE_Salt"; // Would be better as a server-provided value
+        conversationKeys[conversationId] = CryptoJS.PBKDF2(
+            conversationId, 
+            salt,
+            { keySize: 256/32, iterations: 1000 }
+        ).toString();
+    }
+    
+    return conversationKeys[conversationId];
+}
+
+/**
+ * Encrypts a message using AES
+ */
+function encryptMessage(content, currentUserId, recipientId) {
+    try {
+        const key = getConversationKey(currentUserId, recipientId);
+        return CryptoJS.AES.encrypt(content, key).toString();
+    } catch (error) {
+        console.error('Encryption error:', error);
+        return null;
+    }
+}
+
+/**
+ * Decrypts a message using AES
+ */
+function decryptMessage(encryptedContent, currentUserId, senderId) {
+    try {
+        const key = getConversationKey(currentUserId, senderId);
+        const bytes = CryptoJS.AES.decrypt(encryptedContent, key);
+        return bytes.toString(CryptoJS.enc.Utf8);
+    } catch (error) {
+        console.error('Decryption error:', error);
+        return null;
+    }
+}
+
+/**
+ * Helper function to check if a string appears to be encrypted
+ */
+function isEncryptedContent(content) {
+    // A very basic check - encrypted content from CryptoJS usually starts with 'U2Fsd'
+    return typeof content === 'string' && content.startsWith('U2Fsd');
+}
+
+/**
  * Generate a secure random key for a new conversation
  * @returns {string} A random key in hex format
  */

@@ -37,7 +37,8 @@ def handle_send_message(data):
             sender_id=sender_id,
             recipient_id=recipient_id,
             content=content,
-            is_face_locked=is_face_locked
+            is_face_locked=is_face_locked,
+            is_encrypted=is_encrypted
         )
         db.session.add(message)
         db.session.commit()
@@ -48,6 +49,7 @@ def handle_send_message(data):
             'recipient_id': recipient_id,
             'content': content,
             'is_face_locked': is_face_locked,
+            'is_encrypted': is_encrypted,
             'is_encrypted': is_encrypted,
             'timestamp': message.timestamp.isoformat(),
             'author': {

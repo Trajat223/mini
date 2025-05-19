@@ -63,21 +63,21 @@ document.addEventListener('DOMContentLoaded', function () {
             messageContainer.scrollTop = messageContainer.scrollHeight;
 
             // Encrypt the message content before sending
-            const encryptedContent = encryptMessage(content, recipientId);
+            const encryptedContent = encryptMessage(content, currentUserId, recipientId);
 
             if (socket && socket.connected && !file) {
                 socket.emit('send_message', {
-                    content: encryptedContent,
+                    content: encryptedContent || content,
                     recipient_id: recipientId,
                     is_face_locked: isFaceLocked,
-                    is_encrypted: true
+                    is_encrypted: encryptedContent !== null
                 });
             } else {
                 const formData = new FormData();
-                formData.append('content', encryptedContent);
+                formData.append('content', encryptedContent || content);
                 formData.append('recipient_id', recipientId);
                 formData.append('is_face_locked', isFaceLocked);
-                formData.append('is_encrypted', true);
+                formData.append('is_encrypted', encryptedContent !== null);
                 if (file) formData.append('file', file);
 
                 fetch('/send_message', {
@@ -119,8 +119,8 @@ document.addEventListener('DOMContentLoaded', function () {
         // Decrypt the message content if it's encrypted
         let messageContent = message.content;
         if (isEncrypted && !isLocked) {
-            const senderId = isCurrentUser ? currentUserId : message.user_id;
-            messageContent = decryptMessage(messageContent, senderId);
+            const senderId = message.user_id || message.author.id;  // Make sure we get the correct sender ID
+            messageContent = decryptMessage(messageContent, currentUserId, senderId) || '🔒 Unable to decrypt message';
         }
 
         const messageDiv = document.createElement('div');
@@ -178,8 +178,8 @@ document.addEventListener('DOMContentLoaded', function () {
                             let content = message.content;
                             if (message.is_encrypted || messageDiv.dataset.encryptedContent) {
                                 const encryptedContent = messageDiv.dataset.encryptedContent || message.content;
-                                const senderId = isCurrentUser ? currentUserId : message.user_id;
-                                content = decryptMessage(encryptedContent, senderId);
+                                const senderId = message.user_id || message.author.id;
+                                content = decryptMessage(encryptedContent, currentUserId, senderId) || '🔒 Unable to decrypt message';
                             }
                             lockedDiv.outerHTML = `<div>${content}</div>`;
                         } else {
