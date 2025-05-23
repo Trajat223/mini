@@ -11,7 +11,11 @@ let detectionInterval;
 // Get CSRF token
 function getCSRFToken() {
     const tokenMeta = document.querySelector('meta[name="csrf-token"]');
-    return tokenMeta ? tokenMeta.getAttribute('content') : '';
+    if (!tokenMeta) {
+        console.warn("CSRF token meta tag not found.");
+        return '';
+    }
+    return tokenMeta.getAttribute('content');
 }
 
 // On document load
@@ -25,31 +29,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     unlockBtn = document.getElementById('unlockBtn');
     loginForm = document.getElementById('loginForm');
 
-    // Load models
     await loadFaceDetectionModels();
 
-    // Face unlock flow
     if (unlockBtn) {
         unlockBtn.addEventListener('click', async () => {
-            await setupCamera();
-            startFaceDetection();
-            loginForm.style.display = 'none';
-            faceUnlockContainer.style.display = 'block';
+            const success = await setupCamera();
+            if (success) {
+                startFaceDetection();
+                loginForm.style.display = 'none';
+                faceUnlockContainer.style.display = 'block';
+            }
         });
     }
 
-    // Login capture
     if (captureBtn) {
         captureBtn.addEventListener('click', captureAndVerifyFace);
     }
 
-    // Registration flow
     const registerFaceBtn = document.getElementById('registerFaceBtn');
     if (registerFaceBtn) {
         registerFaceBtn.addEventListener('click', async () => {
-            await setupCamera();
-            startFaceDetection();
-            document.getElementById('faceRegistration').style.display = 'block';
+            const success = await setupCamera();
+            if (success) {
+                startFaceDetection();
+                document.getElementById('faceRegistration').style.display = 'block';
+            }
         });
     }
 
@@ -63,9 +67,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 async function loadFaceDetectionModels() {
     try {
         const modelPath = '/static/face-api-models';
-        await faceapi.nets.tinyFaceDetector.loadFromUri(modelPath);
-        await faceapi.nets.faceLandmark68Net.loadFromUri(modelPath);
-        await faceapi.nets.faceRecognitionNet.loadFromUri(modelPath);
+        await Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri(modelPath),
+            faceapi.nets.faceLandmark68Net.loadFromUri(modelPath),
+            faceapi.nets.faceRecognitionNet.loadFromUri(modelPath)
+        ]);
         console.log('Face detection models loaded.');
         isFaceDetectionInitialized = true;
     } catch (err) {
@@ -87,24 +93,42 @@ async function setupCamera() {
             audio: false
         });
         video.srcObject = stream;
+
         return new Promise(resolve => {
             video.onloadedmetadata = () => {
                 video.play();
+                video.style.display = 'block';
+                canvas.style.display = 'block';
                 resolve(true);
             };
         });
     } catch (err) {
-        console.error('Camera error:', err);
-        faceStatus.innerText = 'Camera access denied.';
-        faceStatus.className = 'error';
+        console.error('Camera access denied or failed:', err);
+        if (faceStatus) {
+            faceStatus.innerText = 'Camera access denied.';
+            faceStatus.className = 'error';
+        }
+        stopVideo();
         return false;
     }
+}
+
+// Stop video stream
+function stopVideo() {
+    if (video && video.srcObject) {
+        video.srcObject.getTracks().forEach(track => track.stop());
+        video.srcObject = null;
+    }
+    video.style.display = 'none';
+    canvas.style.display = 'none';
+    clearInterval(detectionInterval);
 }
 
 // Start real-time detection
 function startFaceDetection() {
     if (!isFaceDetectionInitialized || !video) return;
-    if (detectionInterval) clearInterval(detectionInterval);
+
+    clearInterval(detectionInterval);
 
     const displaySize = { width: video.width, height: video.height };
     faceapi.matchDimensions(canvas, displaySize);
@@ -141,6 +165,7 @@ async function captureAndVerifyFace() {
     if (!isFaceDetected) return;
 
     clearInterval(detectionInterval);
+
     const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
         .withFaceLandmarks()
         .withFaceDescriptor();
@@ -174,8 +199,10 @@ async function captureAndVerifyFace() {
 
         const result = await response.json();
         if (result.success) {
+            document.getElementById('face_verified').value = 'true';
             faceStatus.innerText = 'Verified! Redirecting...';
             faceStatus.className = 'success';
+            stopVideo();
             setTimeout(() => window.location.href = '/chat', 1000);
         } else {
             faceStatus.innerText = result.message || 'Verification failed.';
@@ -211,13 +238,7 @@ async function captureFaceForRegistration() {
         status.innerText = 'Face captured! Complete registration.';
         status.className = 'success';
 
-        if (video.srcObject) {
-            video.srcObject.getTracks().forEach(track => track.stop());
-            video.srcObject = null;
-        }
-
-        video.style.display = 'none';
-        canvas.style.display = 'none';
+        stopVideo();
     } catch (err) {
         console.error('Capture error:', err);
         const status = document.getElementById('faceDataStatus');

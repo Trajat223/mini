@@ -9,7 +9,7 @@ import os
 # Initialize Flask extensions
 csrf = CSRFProtect()
 db = SQLAlchemy()
-socketio = SocketIO(cors_allowed_origins="*", async_mode="threading")  # <- Updated
+socketio = SocketIO(cors_allowed_origins="*", async_mode="threading")
 login_manager = LoginManager()
 
 def create_app(config_class=Config):
@@ -21,7 +21,7 @@ def create_app(config_class=Config):
 
     # Initialize extensions with app
     db.init_app(app)
-    socketio.init_app(app, cors_allowed_origins="*", async_mode="threading")  # <- Ensure proper init
+    socketio.init_app(app, cors_allowed_origins="*", async_mode="threading")
     login_manager.init_app(app)
     csrf.init_app(app)
     login_manager.login_view = 'login'
@@ -36,7 +36,7 @@ def create_app(config_class=Config):
     os.makedirs(os.path.join(app.static_folder, 'uploads'), exist_ok=True)
 
     with app.app_context():
-        from app import routes, models, socket_events
+        from app import routes, models, socket_events  # ✅ This registers routes like /verify_face
         from app.models import User
 
         @login_manager.user_loader

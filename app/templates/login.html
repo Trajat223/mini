@@ -2,9 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - SecureChatApp</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script defer src="{{ url_for('static', filename='face-api.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='face_auth.js') }}"></script>
 </head>
 <body>
     <div class="container auth-container">
@@ -19,10 +22,11 @@
                 </div>
             {% endif %}
         {% endwith %}
-        
-        <form action="{{ url_for('login') }}" method="post">
+
+        <form id="loginForm" method="POST" action="{{ url_for('login') }}">
             {{ form.hidden_tag() }}
-            
+            <input type="hidden" name="face_verified" id="face_verified" value="false">
+
             <div class="form-group">
                 <label for="username">Username</label>
                 {{ form.username(class="form-control", id="username") }}
@@ -42,13 +46,22 @@
                     </div>
                 {% endif %}
             </div>
-            
+
+            <!-- Unlock (face verification) button -->
             <div class="form-group">
-                <button type="submit">Login</button>
+                <button type="button" id="unlockBtn">Verify & Login</button>
             </div>
-            
+
             <p class="auth-toggle">Don't have an account? <a href="{{ url_for('register') }}">Register</a></p>
         </form>
+
+        <!-- Face unlock UI (initially hidden) -->
+        <div id="faceUnlockContainer" style="display: none;">
+            <video id="faceVideo" width="320" height="240" autoplay muted></video>
+            <canvas id="faceCanvas" width="320" height="240"></canvas>
+            <div id="faceStatus" class="status-text">Initializing...</div>
+            <button id="captureBtn" disabled>Capture & Verify Face</button>
+        </div>
     </div>
 </body>
 </html>

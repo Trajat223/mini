@@ -7,6 +7,9 @@ document.addEventListener('DOMContentLoaded', function () {
     const fileInput = document.querySelector('.message-file');
     const currentUserId = document.body.dataset.userId;
 
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
+                      document.querySelector('input[name="csrf_token"]')?.value;
+
     if (messageContainer) {
         messageContainer.scrollTop = messageContainer.scrollHeight;
     }
@@ -33,7 +36,7 @@ document.addEventListener('DOMContentLoaded', function () {
             e.preventDefault();
 
             const content = messageInput.value.trim();
-            const recipientId = recipientInput ? recipientInput.value : null;
+            const recipientId = recipientInput?.value;
             const isFaceLocked = faceLockedCheckbox?.checked || false;
             const file = fileInput?.files[0];
 
@@ -64,7 +67,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             if (socket && socket.connected && !file) {
                 socket.emit('send_message', {
-                    content: content,
+                    content,
                     recipient_id: recipientId,
                     is_face_locked: isFaceLocked
                 });
@@ -74,10 +77,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 formData.append('recipient_id', recipientId);
                 formData.append('is_face_locked', isFaceLocked);
                 if (file) formData.append('file', file);
+                if (csrfToken) formData.append('csrf_token', csrfToken);
 
                 fetch('/send_message', {
                     method: 'POST',
-                    body: formData
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': csrfToken
+                    }
                 })
                     .then(response => response.json())
                     .then(data => {
@@ -114,14 +121,11 @@ document.addEventListener('DOMContentLoaded', function () {
         messageDiv.className = `message ${isCurrentUser ? 'sent' : 'received'}`;
         messageDiv.dataset.messageId = message.id;
 
-        let contentHtml = '';
-        if (isLocked) {
-            contentHtml = `<div class="locked-message" data-locked="true" data-message-id="${message.id}">
+        let contentHtml = isLocked
+            ? `<div class="locked-message" data-locked="true" data-message-id="${message.id}">
                 🔒 Face-locked message (click to unlock)
-            </div>`;
-        } else {
-            contentHtml = `<div>${message.content}</div>`;
-        }
+            </div>`
+            : `<div>${message.content}</div>`;
 
         const fileHtml = message.file_path
             ? `<div>📎 <a href="/uploads/${message.file_path.split('/').pop()}" target="_blank">${message.file_path.split('/').pop()}</a></div>`
@@ -137,7 +141,6 @@ document.addEventListener('DOMContentLoaded', function () {
         messageContainer.appendChild(messageDiv);
         messageContainer.scrollTop = messageContainer.scrollHeight;
 
-        // Remove temp message if matching
         const tempMessages = document.querySelectorAll('[data-message-id^="temp-"]');
         tempMessages.forEach(temp => {
             if (
@@ -148,23 +151,30 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
 
-        // Face unlock click handler
         if (isLocked) {
             const lockedDiv = messageDiv.querySelector('.locked-message');
             lockedDiv.addEventListener('click', function () {
-                fetch('/face_verification_api')
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.verified) {
-                            lockedDiv.outerHTML = `<div>${message.content}</div>`;
-                        } else {
-                            alert('Face verification failed. Cannot unlock message.');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Face verification error:', error);
-                        alert('Error during face verification.');
-                    });
+                fetch('/verify_face', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({})  // include face data or leave empty if backend fetches webcam directly
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.verified) {
+                        lockedDiv.outerHTML = `<div>${message.content}</div>`;
+                    } else {
+                        alert('Face verification failed. Cannot unlock message.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Face verification error:', error);
+                    alert('Error during face verification.');
+                });
+                
             });
         }
     }
@@ -200,7 +210,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    const recipientId = recipientInput ? recipientInput.value : null;
+    const recipientId = recipientInput?.value;
     if (recipientId) fetchMessages(recipientId);
 
     // Inactivity lock
@@ -221,7 +231,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const pollingInterval = setInterval(() => {
         if (!socket || !socket.connected) {
-            fetchMessages(recipientInput ? recipientInput.value : null);
+            fetchMessages(recipientInput?.value);
         }
     }, 5000);
 

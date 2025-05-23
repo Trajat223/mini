@@ -10,8 +10,8 @@ from datetime import datetime
 @socketio.on('connect')
 def handle_connect():
     if current_user.is_authenticated:
-        join_room(f'user_{current_user.id}')
-        emit('status', {'msg': f'{current_user.username} connected'})
+        join_room(str(current_user.id))
+        logging.info(f"{current_user.username} connected to room {current_user.id}")
 
 @socketio.on('disconnect')
 def handle_disconnect():
